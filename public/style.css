@@ -783,3 +783,21 @@ select:focus {
   border-top: 1px solid var(--border-color);
   margin: 20px 0;
 }
+
+/* Always on screen, so a screenshot always shows which build is running */
+.version-badge {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  z-index: 9999;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--accent-green, #00d084);
+  color: #06231a;
+  font-weight: 700;
+  font-size: 0.85rem;
+  font-family: monospace;
+  direction: ltr;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}

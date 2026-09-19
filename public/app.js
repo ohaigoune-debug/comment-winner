@@ -14,7 +14,18 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('🎉 Comment Winner App Initialized');
   loadSettingsFromStorage();
   setupEventListeners();
+  showVersion();
 });
+
+async function showVersion() {
+  const badge = document.getElementById('versionBadge');
+  try {
+    const { version } = await (await fetch('/api/health')).json();
+    badge.textContent = `v${version}`;
+  } catch {
+    badge.textContent = 'v?';
+  }
+}
 
 // ===== Facebook OAuth =====
 let fbSdkAppId = null;

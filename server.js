@@ -18,6 +18,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const APP_VERSION = require('./package.json').version;
 
 // Middleware
 app.use(cors());
@@ -607,7 +608,7 @@ app.get('/api/export/xlsx', (req, res) => {
 
 // GET /api/health - Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: APP_VERSION, timestamp: new Date().toISOString() });
 });
 
 // 404 handler
@@ -618,7 +619,7 @@ app.use((req, res) => {
 // Start server
 app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
-  console.log(`\n🎉 Comment Winner Server running on ${url}`);
+  console.log(`\n🎉 Comment Winner v${APP_VERSION} running on ${url}`);
   console.log(`📊 Database: ${dbPath}`);
   console.log(`\n   افتح المتصفح على: ${url}\n`);
 
