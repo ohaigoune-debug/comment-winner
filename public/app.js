@@ -111,9 +111,16 @@ function setupEventListeners() {
 }
 
 // ===== Settings Management =====
-function openSettings() {
+async function openSettings() {
   document.getElementById('settingsModal').classList.remove('hidden');
   loadSettingsToForm();
+
+  try {
+    const { hasToken } = await (await fetch('/api/settings/token')).json();
+    document.getElementById('shareToken').checked = hasToken;
+  } catch {
+    // leave the box as it is if the server cannot be reached
+  }
 }
 
 function closeSettings() {
@@ -130,15 +137,29 @@ function persistSettings() {
   }));
 }
 
-function saveSettings() {
-  if (!document.getElementById('accessToken').value.trim()) {
-    showMessage('Please enter Meta Access Token', 'error');
+async function saveSettings() {
+  const accessToken = document.getElementById('accessToken').value.trim();
+
+  if (!accessToken) {
+    showMessage('ضع Meta Access Token أولًا', 'error');
     return;
   }
 
   persistSettings();
-  showMessage('✓ Settings saved successfully', 'success');
-  setTimeout(() => closeSettings(), 500);
+
+  const share = document.getElementById('shareToken').checked;
+  try {
+    await fetch('/api/settings/token', {
+      method: share ? 'POST' : 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: share ? JSON.stringify({ accessToken }) : undefined
+    });
+  } catch (error) {
+    showMessage(`⚠️ حُفظ محليًا، لكن المشاركة مع الأجهزة فشلت: ${error.message}`, 'error');
+  }
+
+  showMessage(share ? '✓ حُفظ، وهاتفك سيعمل الآن بلا كتابة التوكن' : '✓ تم حفظ الإعدادات', 'success');
+  setTimeout(() => closeSettings(), 700);
 }
 
 function loadSettingsFromStorage() {
@@ -277,11 +298,17 @@ async function fetchComments() {
     return;
   }
 
+  // A phone needs no token of its own when the computer is sharing one
   const settings = getSettings();
-  if (!settings || !settings.accessToken) {
-    showMessage('Please configure Meta Access Token in Settings', 'error');
-    openSettings();
-    return;
+  const localToken = settings?.accessToken;
+
+  if (!localToken) {
+    const { hasToken } = await (await fetch('/api/settings/token')).json();
+    if (!hasToken) {
+      showMessage('ضع Meta Access Token في الإعدادات أولًا', 'error');
+      openSettings();
+      return;
+    }
   }
 
   showLoading(true);
@@ -294,8 +321,8 @@ async function fetchComments() {
         platform,
         postId,
         postUrl,
-        accessToken: settings.accessToken,
-        facebookPageId: settings.facebookPageId || undefined
+        accessToken: localToken || undefined,
+        facebookPageId: settings?.facebookPageId || undefined
       })
     });
 

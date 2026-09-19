@@ -169,12 +169,51 @@ function extractMentions(text) {
   return mentions.length;
 }
 
+// A token saved here serves every device on the network, so a phone does not
+// have to retype one. It never leaves this machine.
+function getSharedToken() {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'meta_access_token'").get();
+  return row?.value || null;
+}
+
 // ============ API Endpoints ============
+
+// GET /api/settings/token - whether this machine holds a shared token
+app.get('/api/settings/token', (req, res) => {
+  res.json({ hasToken: Boolean(getSharedToken()) });
+});
+
+// POST /api/settings/token - share this token with the other devices
+app.post('/api/settings/token', (req, res) => {
+  try {
+    const { accessToken } = req.body;
+
+    if (!accessToken) {
+      return res.status(400).json({ error: 'التوكن مفقود' });
+    }
+
+    db.prepare(`
+      INSERT INTO settings (key, value, updated_at) VALUES ('meta_access_token', ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+    `).run(accessToken);
+
+    res.json({ success: true });
+  } catch (error) {
+    logError('POST /api/settings/token', error);
+    res.status(500).json({ error: 'تعذّر حفظ التوكن' });
+  }
+});
+
+// DELETE /api/settings/token - stop sharing it
+app.delete('/api/settings/token', (req, res) => {
+  db.prepare("DELETE FROM settings WHERE key = 'meta_access_token'").run();
+  res.json({ success: true });
+});
 
 // GET /api/meta/pages - Get Facebook pages
 app.get('/api/meta/pages', async (req, res) => {
   try {
-    const accessToken = req.query.accessToken || process.env.META_ACCESS_TOKEN;
+    const accessToken = req.query.accessToken || getSharedToken() || process.env.META_ACCESS_TOKEN;
 
     if (!accessToken) {
       return res.status(400).json({
@@ -255,7 +294,7 @@ app.post('/api/posts/resolve', (req, res) => {
 app.post('/api/comments/fetch', async (req, res) => {
   try {
     const { platform, postId, postUrl } = req.body;
-    const accessToken = req.body.accessToken || process.env.META_ACCESS_TOKEN;
+    const accessToken = req.body.accessToken || getSharedToken() || process.env.META_ACCESS_TOKEN;
 
     if (!platform || !postId) {
       return res.status(400).json({ error: 'Missing platform or postId' });
