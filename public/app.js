@@ -173,6 +173,41 @@ function getSettings() {
   return null;
 }
 
+// ===== Token Diagnostic =====
+async function checkToken() {
+  const token = document.getElementById('accessToken').value.trim();
+  const box = document.getElementById('tokenCheckResult');
+  box.classList.remove('hidden');
+  box.style.whiteSpace = 'pre-line';
+
+  if (!token) {
+    box.textContent = '⚠️ ضع التوكن في الخانة أعلاه أولًا';
+    box.style.color = 'var(--error)';
+    return;
+  }
+
+  box.textContent = '⏳ جارٍ الفحص...';
+  box.style.color = '';
+
+  try {
+    const response = await fetch(`/api/meta/pages?accessToken=${encodeURIComponent(token)}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      box.textContent = `❌ ${data.error}\n${data.message || ''}`;
+      box.style.color = 'var(--error)';
+      return;
+    }
+
+    const list = data.pages.map(p => `${p.name} — ${p.id}`).join('\n');
+    box.textContent = `✅ التوكن سليم ويرى ${data.pages.length} صفحة:\n${list}\n\nانسخ رقم صفحتك إلى خانة Facebook Page ID.`;
+    box.style.color = 'var(--success)';
+  } catch (error) {
+    box.textContent = `❌ ${error.message}`;
+    box.style.color = 'var(--error)';
+  }
+}
+
 // ===== Platform Selection =====
 function selectPlatform(platform) {
   appState.currentPlatform = platform;
@@ -248,7 +283,8 @@ async function fetchComments() {
         platform,
         postId,
         postUrl,
-        accessToken: settings.accessToken
+        accessToken: settings.accessToken,
+        facebookPageId: settings.facebookPageId || undefined
       })
     });
 

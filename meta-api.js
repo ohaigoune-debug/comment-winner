@@ -31,7 +31,7 @@ async function metaApiCall(endpoint, accessToken, params = {}) {
     } else if (errorCode === 200) {
       throw new Error('Permission denied. Check your Access Token permissions.');
     } else if (errorCode === 100) {
-      throw new Error('Invalid parameter. Check Post ID or Media ID format.');
+      throw new Error('فيسبوك لا يتعرّف على هذا المنشور بهذا التوكن. غالبًا لأنك تستعمل توكن حساب شخصي بدل توكن الصفحة، أو أن المنشور لا يخص صفحتك.');
     } else if (errorCode === 803) {
       throw new Error('Cannot query this post. It may be deleted or not accessible.');
     } else if (errorMsg) {
@@ -151,6 +151,42 @@ async function fetchFacebookComments(postId, accessToken) {
   }
 }
 
+// Reading comments on a Page's post needs that Page's own token, not the user's.
+// Page posts are also addressed as {page-id}_{post-id} as often as by the bare id.
+async function fetchFacebookCommentsAsPage(postId, userAccessToken, preferredPageId) {
+  let pages = [];
+  try {
+    pages = await getFacebookPages(userAccessToken);
+  } catch (error) {
+    console.warn('تعذّر سرد الصفحات:', error.message);
+  }
+
+  const page = preferredPageId
+    ? pages.find(p => p.id === preferredPageId)
+    : pages[0];
+
+  if (!page) {
+    throw new Error(
+      'لم يعثر التطبيق على أي صفحة مرتبطة بهذا التوكن. ' +
+      'تعليقات منشورات الصفحات تحتاج توكن صفحة بصلاحيتَي pages_show_list و pages_read_engagement. ' +
+      'أنشئ توكنًا جديدًا مع هاتين الصلاحيتين واختر صفحتك عند إنشائه.'
+    );
+  }
+
+  console.log(`📄 استعمال توكن الصفحة: ${page.name} (${page.id})`);
+
+  try {
+    return await fetchFacebookComments(postId, page.access_token);
+  } catch (error) {
+    console.log(`↻ إعادة المحاولة بالصيغة ${page.id}_${postId}`);
+    try {
+      return await fetchFacebookComments(`${page.id}_${postId}`, page.access_token);
+    } catch {
+      throw error;
+    }
+  }
+}
+
 // Fetch comments from Instagram Media
 async function fetchInstagramComments(mediaId, accessToken) {
   try {
@@ -241,6 +277,7 @@ module.exports = {
   getFacebookPages,
   getInstagramAccount,
   fetchFacebookComments,
+  fetchFacebookCommentsAsPage,
   fetchInstagramComments,
   validateAccessToken,
   metaApiCall

@@ -173,21 +173,23 @@ function extractMentions(text) {
 // GET /api/meta/pages - Get Facebook pages
 app.get('/api/meta/pages', async (req, res) => {
   try {
-    if (!process.env.META_ACCESS_TOKEN) {
+    const accessToken = req.query.accessToken || process.env.META_ACCESS_TOKEN;
+
+    if (!accessToken) {
       return res.status(400).json({
-        error: 'META_ACCESS_TOKEN is not configured',
-        message: 'Please set your Meta Access Token in settings'
+        error: 'التوكن غير موجود',
+        message: 'ضع Meta Access Token في الإعدادات أولًا'
       });
     }
 
     // Fetch pages from Meta API
     try {
-      const pages = await metaApi.getFacebookPages(process.env.META_ACCESS_TOKEN);
+      const pages = await metaApi.getFacebookPages(accessToken);
 
       if (pages.length === 0) {
         return res.status(400).json({
-          error: 'No Facebook pages found',
-          message: 'Make sure you are the admin of at least one Facebook page.'
+          error: 'هذا التوكن لا يرى أي صفحة',
+          message: 'أنشئ توكنًا بصلاحيتَي pages_show_list و pages_read_engagement، واختر صفحتك عند إنشائه.'
         });
       }
 
@@ -268,7 +270,7 @@ app.post('/api/comments/fetch', async (req, res) => {
     let comments = [];
     try {
       if (platform === 'facebook') {
-        comments = await metaApi.fetchFacebookComments(postId, accessToken);
+        comments = await metaApi.fetchFacebookCommentsAsPage(postId, accessToken, req.body.facebookPageId);
       } else if (platform === 'instagram') {
         comments = await metaApi.fetchInstagramComments(postId, accessToken);
       }

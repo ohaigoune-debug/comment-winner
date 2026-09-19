@@ -49,6 +49,8 @@
               <label for="accessToken">Meta Access Token</label>
               <input type="password" id="accessToken" placeholder="أدخل Access Token الخاص بك">
               <small>⚠️ يتم الاحتفاظ به محليًا فقط</small>
+              <button class="btn btn-secondary" onclick="checkToken()">🔍 افحص التوكن واعرض صفحاتي</button>
+              <div id="tokenCheckResult" class="message hidden"></div>
             </div>
             <div class="setting-group">
               <label for="facebookPageId">Facebook Page ID (اختياري)</label>
