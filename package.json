@@ -1,0 +1,21 @@
+{
+  "name": "comment-winner",
+  "version": "1.0.0",
+  "description": "Draw contest winners from Facebook & Instagram comments",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development node server.js",
+    "winner": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "better-sqlite3": "^13.0.3",
+    "axios": "^1.20.0",
+    "cors": "^2.8.6",
+    "csv-stringify": "^6.8.3",
+    "xlsx": "^0.18.5",
+    "dotenv": "^18.0.1",
+    "multer": "^2.4.0"
+  }
+}
