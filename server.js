@@ -676,7 +676,10 @@ function lanAddresses() {
   return Object.values(require('os').networkInterfaces())
     .flat()
     .filter(n => n && !n.internal && (n.family === 'IPv4' || n.family === 4))
-    .map(n => n.address);
+    .map(n => n.address)
+    // 169.254.x.x is what an adapter assigns itself when it reached no router,
+    // so those addresses are unreachable noise from idle virtual adapters
+    .filter(address => !address.startsWith('169.254.'));
 }
 
 // Start server

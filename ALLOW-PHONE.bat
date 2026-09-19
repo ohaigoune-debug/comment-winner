@@ -16,7 +16,7 @@ echo  [OK] Done.
 echo.
 echo  Open one of these on your phone:
 echo.
-powershell -NoProfile -Command "Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -ne '127.0.0.1' } | ForEach-Object { '      http://' + $_.IPAddress + ':3000' }"
+powershell -NoProfile -Command "Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notmatch '^(127\.|169\.254\.)' } | ForEach-Object { '      http://' + $_.IPAddress + ':3000' }"
 echo.
 echo  START-WINDOWS.bat must be running at the same time.
 echo.
