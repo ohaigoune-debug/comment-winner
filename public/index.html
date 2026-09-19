@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Comment Winner - أداة سحب الفائزين</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Facebook SDK -->
+  <script async defer crossorigin="anonymous" src="https://connect.facebook.net/ar_AR/sdk.js#xfbml=1&version=v18.0&appId=1234567890" id="facebook-jssdk"></script>
 </head>
 <body>
   <div class="container">
@@ -29,7 +31,20 @@
             <button class="close-btn" onclick="closeSettings()">✕</button>
           </div>
           <div class="modal-body">
+            <!-- Facebook Login Option -->
             <div class="setting-group">
+              <h3>خيار 1: الدخول عبر Facebook (موصى به)</h3>
+              <button class="btn btn-primary btn-facebook" onclick="loginWithFacebook()">
+                👤 الدخول عبر حسابي بـ Facebook
+              </button>
+              <div id="fbLoginStatus" class="message hidden"></div>
+            </div>
+
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #444;">
+
+            <!-- Manual Token Option -->
+            <div class="setting-group">
+              <h3>خيار 2: إدخال التوكن يدويًا</h3>
               <label for="accessToken">Meta Access Token</label>
               <input type="password" id="accessToken" placeholder="أدخل Access Token الخاص بك">
               <small>⚠️ يتم الاحتفاظ به محليًا فقط</small>

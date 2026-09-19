@@ -16,8 +16,58 @@ document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
 });
 
+// ===== Facebook OAuth =====
+function initFacebookSDK() {
+  // Initialize Facebook SDK
+  if (window.FB) {
+    FB.AppEvents.logPageView();
+  }
+}
+
+function loginWithFacebook() {
+  if (!window.FB) {
+    showMessage('❌ Facebook SDK لم يتحمل بعد. حاول مرة أخرى.', 'error');
+    return;
+  }
+
+  FB.login(function(response) {
+    if (response.authResponse) {
+      // User logged in successfully
+      const accessToken = response.authResponse.accessToken;
+      const userID = response.authResponse.userID;
+
+      // Save token to localStorage
+      localStorage.setItem('META_ACCESS_TOKEN', accessToken);
+
+      // Update UI
+      const statusDiv = document.getElementById('fbLoginStatus');
+      statusDiv.textContent = `✅ تم الدخول بنجاح! (ID: ${userID})`;
+      statusDiv.classList.remove('hidden');
+      statusDiv.style.color = 'var(--success)';
+
+      // Hide manual token input
+      const tokenInput = document.getElementById('accessToken');
+      tokenInput.value = accessToken;
+      tokenInput.disabled = true;
+      tokenInput.style.opacity = '0.5';
+
+      showMessage('✅ تم حفظ التوكن بنجاح!', 'success');
+    } else {
+      // User cancelled login
+      const statusDiv = document.getElementById('fbLoginStatus');
+      statusDiv.textContent = '❌ تم إلغاء عملية الدخول';
+      statusDiv.classList.remove('hidden');
+      statusDiv.style.color = 'var(--error)';
+      showMessage('❌ تم إلغاء عملية الدخول', 'error');
+    }
+  }, {scope: 'pages_read_engagement,instagram_basic,instagram_manage_insights'});
+}
+
 // ===== Event Listeners =====
 function setupEventListeners() {
+  // Initialize Facebook SDK
+  setTimeout(initFacebookSDK, 1000);
+
   // Platform selection
   document.querySelectorAll('.platform-btn').forEach(btn => {
     btn.addEventListener('click', () => {

@@ -746,3 +746,40 @@ select:focus {
     font-size: 1.8rem;
   }
 }
+
+/* ===== Facebook Login Button ===== */
+.btn-facebook {
+  background: linear-gradient(135deg, #1877f2 0%, #0a66c2 100%);
+  border: none;
+  color: white;
+  font-weight: 600;
+  padding: 14px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  font-size: 1rem;
+  margin: 10px 0;
+}
+
+.btn-facebook:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(24, 119, 242, 0.4);
+}
+
+.btn-facebook:active {
+  transform: translateY(0);
+}
+
+/* ===== Settings Modal Improvements ===== */
+.setting-group h3 {
+  color: var(--accent-green);
+  margin-bottom: 12px;
+  font-size: 1.1rem;
+}
+
+.setting-group hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 20px 0;
+}
