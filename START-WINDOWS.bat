@@ -32,7 +32,7 @@ echo  To stop: close this window.
 echo  للايقاف: اغلق هذه النافذة
 echo.
 
-start "" cmd /c "ping -n 6 127.0.0.1 >nul & start http://localhost:3000"
+set OPEN_BROWSER=1
 call npm start
 
 echo.

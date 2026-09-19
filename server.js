@@ -604,9 +604,18 @@ app.use((req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`\n🎉 Comment Winner Server running on http://localhost:${PORT}`);
+  const url = `http://localhost:${PORT}`;
+  console.log(`\n🎉 Comment Winner Server running on ${url}`);
   console.log(`📊 Database: ${dbPath}`);
-  console.log(`⚙️  Environment: ${process.env.NODE_ENV}\n`);
+  console.log(`\n   افتح المتصفح على: ${url}\n`);
+
+  // Opened here rather than by the launcher, so it cannot fire before the port is listening
+  if (process.env.OPEN_BROWSER === '1') {
+    const opener = process.platform === 'win32' ? `start "" "${url}"`
+      : process.platform === 'darwin' ? `open "${url}"`
+      : `xdg-open "${url}"`;
+    require('child_process').exec(opener, () => {});
+  }
 });
 
 module.exports = app;

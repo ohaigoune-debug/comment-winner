@@ -38,6 +38,4 @@ echo " سيفتح المتصفح تلقائيًا خلال ثوانٍ."
 echo " لإيقاف التطبيق: أغلق هذه النافذة أو اضغط Ctrl+C."
 echo
 
-( sleep 4; open "http://localhost:3000" 2>/dev/null || xdg-open "http://localhost:3000" 2>/dev/null ) &
-
-npm start
+OPEN_BROWSER=1 npm start
