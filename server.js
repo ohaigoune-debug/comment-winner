@@ -506,6 +506,42 @@ app.post('/api/draw', (req, res) => {
   }
 });
 
+// POST /api/winners - record the winners drawn in the browser, so the exports
+// can mark them; the draw itself stays client-side.
+app.post('/api/winners', (req, res) => {
+  try {
+    const { contestId, winners } = req.body;
+
+    if (!contestId || !Array.isArray(winners)) {
+      return res.status(400).json({ error: 'Missing contestId or winners' });
+    }
+
+    db.prepare('DELETE FROM winners WHERE contest_id = ?').run(contestId);
+
+    const insert = db.prepare(`
+      INSERT INTO winners (contest_id, comment_id, user_id, username, name, comment_text, winner_rank)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    winners.forEach((winner, index) => {
+      insert.run(
+        contestId,
+        winner.comment_id,
+        winner.user_id ?? null,
+        winner.username ?? null,
+        winner.name ?? 'بدون اسم',
+        winner.text ?? null,
+        index + 1
+      );
+    });
+
+    res.json({ success: true, saved: winners.length });
+  } catch (error) {
+    logError('POST /api/winners', error);
+    res.status(500).json({ error: 'Failed to save winners' });
+  }
+});
+
 // GET /api/export/csv - Export as CSV
 app.get('/api/export/csv', (req, res) => {
   try {
@@ -617,8 +653,7 @@ app.get('/api/export/xlsx', (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
-    xlsx.write(workbook, { type: 'stream', bookType: 'xlsx' });
-    xlsx.write(workbook, { type: 'stream' }).pipe(res);
+    res.send(xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' }));
   } catch (error) {
     logError('GET /api/export/xlsx', error);
     res.status(500).json({ error: 'Failed to export Excel' });

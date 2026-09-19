@@ -443,13 +443,28 @@ async function drawWinners() {
 
     displayWinners(winners);
     document.getElementById('winnersSection').classList.remove('hidden');
+    await saveWinners(winners);
 
-    showMessage(`🎉 ${winnerCount} winners selected!`, 'success');
+    showMessage(`🎉 تم اختيار ${winnerCount} فائزين!`, 'success');
   } catch (error) {
     showMessage(`Error drawing winners: ${error.message}`, 'error');
   }
 
   showLoading(false);
+}
+
+// Exports read the winners back out of the database, so the draw has to
+// record them there before a file is downloaded.
+async function saveWinners(winners) {
+  try {
+    await fetch('/api/winners', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contestId: appState.currentContestId, winners })
+    });
+  } catch (error) {
+    showMessage(`⚠️ لم تُحفظ أسماء الفائزين، فلن تظهر في ملف Excel: ${error.message}`, 'error');
+  }
 }
 
 // ===== Secure Random Selection =====
@@ -517,7 +532,8 @@ function selectAlternate() {
   appState.winners = newWinners;
 
   displayWinners(newWinners);
-  showMessage(`✓ Added alternate winner`, 'success');
+  saveWinners(newWinners);
+  showMessage('✓ تمت إضافة فائز بديل', 'success');
 }
 
 // ===== Export CSV =====
