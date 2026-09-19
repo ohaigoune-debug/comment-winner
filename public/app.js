@@ -270,6 +270,10 @@ async function fetchComments() {
     document.getElementById('drawSection').classList.remove('hidden');
 
     showMessage(`✓ تم جلب ${comments.length} تعليقًا حقيقيًا من ${platform}`, 'success');
+
+    if (data.commentsSkipped > 0) {
+      showMessage(`⚠️ تعذّر حفظ ${data.commentsSkipped} تعليقًا، فلن تدخل القرعة`, 'error');
+    }
   } catch (error) {
     showMessage(`خطأ في جلب التعليقات: ${error.message}`, 'error');
   } finally {

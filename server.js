@@ -2,7 +2,14 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const Database = require('better-sqlite3');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch {
+  console.error('\n  نسخة Node.js قديمة. ثبّت أحدث نسخة من nodejs.org ثم أعد المحاولة.');
+  console.error('  Your Node.js is too old. Install the latest version from nodejs.org\n');
+  process.exit(1);
+}
 const dotenv = require('dotenv');
 const metaApi = require('./meta-api');
 
@@ -19,8 +26,8 @@ app.use(express.static('public'));
 
 // Initialize Database
 const dbPath = path.join(__dirname, 'database.db');
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
+const db = new DatabaseSync(dbPath);
+db.exec('PRAGMA journal_mode = WAL');
 
 // Create database tables if they don't exist
 function initializeDatabase() {
@@ -306,25 +313,28 @@ app.post('/api/comments/fetch', async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
+    // Meta omits fields like username on some accounts; binding undefined throws,
+    // which would drop those commenters from the draw without a trace.
     let inserted = 0;
+    let skipped = 0;
     comments.forEach(comment => {
       try {
         insertComment.run(
           newPostRowId,
           comment.comment_id,
-          comment.user_id,
-          comment.username,
-          comment.name,
-          comment.text,
-          comment.likes_count,
-          comment.created_time,
-          comment.is_reply,
-          comment.mentions_count,
-          comment.is_eligible
+          comment.user_id ?? null,
+          comment.username ?? null,
+          comment.name ?? 'بدون اسم',
+          comment.text ?? null,
+          comment.likes_count ?? 0,
+          comment.created_time ?? null,
+          comment.is_reply ?? 0,
+          comment.mentions_count ?? 0,
+          comment.is_eligible ?? 1
         );
         inserted++;
-      } catch (err) {
-        // Ignore duplicates
+      } catch {
+        skipped++;
       }
     });
 
@@ -332,6 +342,7 @@ app.post('/api/comments/fetch', async (req, res) => {
       success: true,
       commentsFetched: comments.length,
       commentsInserted: inserted,
+      commentsSkipped: skipped,
       platform,
       postId,
       contestId: newContestId
