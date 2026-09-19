@@ -117,11 +117,13 @@ async function fetchFacebookComments(postId, accessToken) {
       data.data.forEach(comment => {
         if (comment.message) {
           const mentions = (comment.message.match(/@\w+/g) || []).length;
+          // Facebook omits `from` for commenters it will not identify to this app
+          const author = comment.from || {};
           comments.push({
             comment_id: comment.id,
-            user_id: comment.from.id,
-            username: comment.from.name, // Facebook doesn't provide username directly
-            name: comment.from.name,
+            user_id: author.id ?? null,
+            username: author.name ?? null,
+            name: author.name ?? 'مستخدم فيسبوك',
             text: comment.message,
             likes_count: comment.like_count || 0,
             created_time: comment.created_time,
@@ -144,6 +146,16 @@ async function fetchFacebookComments(postId, accessToken) {
     }
 
     console.log(`✅ Fetched ${totalFetched} Facebook comments`);
+
+    // A draw is pointless if no winner can be named, so say so rather than
+    // handing back a list of anonymous entries.
+    if (comments.length > 0 && !comments.some(c => c.user_id)) {
+      throw new Error(
+        `وصلت ${comments.length} تعليقًا، لكن فيسبوك لم يرسل أسماء أصحابها، فلا يمكن معرفة الفائز. ` +
+        `أضف صلاحية pages_read_user_content إلى التوكن وأعد المحاولة.`
+      );
+    }
+
     return comments;
   } catch (error) {
     console.error('Error fetching Facebook comments:', error.message);
@@ -168,8 +180,8 @@ async function fetchFacebookCommentsAsPage(postId, userAccessToken, preferredPag
   if (!page) {
     throw new Error(
       'لم يعثر التطبيق على أي صفحة مرتبطة بهذا التوكن. ' +
-      'تعليقات منشورات الصفحات تحتاج توكن صفحة بصلاحيتَي pages_show_list و pages_read_engagement. ' +
-      'أنشئ توكنًا جديدًا مع هاتين الصلاحيتين واختر صفحتك عند إنشائه.'
+      'تعليقات منشورات الصفحات تحتاج توكن صفحة بصلاحيات pages_show_list و pages_read_engagement و pages_read_user_content. ' +
+      'أنشئ توكنًا جديدًا بهذه الصلاحيات واختر صفحتك عند إنشائه.'
     );
   }
 
@@ -219,11 +231,12 @@ async function fetchInstagramComments(mediaId, accessToken) {
       data.data.forEach(comment => {
         if (comment.text) {
           const mentions = (comment.text.match(/@\w+/g) || []).length;
+          const author = comment.from || {};
           comments.push({
             comment_id: comment.id,
-            user_id: comment.from.id,
-            username: comment.from.username || comment.from.name,
-            name: comment.from.name,
+            user_id: author.id ?? null,
+            username: author.username ?? author.name ?? null,
+            name: author.name ?? author.username ?? 'مستخدم إنستغرام',
             text: comment.text,
             likes_count: comment.like_count || 0,
             created_time: comment.timestamp,

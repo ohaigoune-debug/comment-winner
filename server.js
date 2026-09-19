@@ -189,7 +189,7 @@ app.get('/api/meta/pages', async (req, res) => {
       if (pages.length === 0) {
         return res.status(400).json({
           error: 'هذا التوكن لا يرى أي صفحة',
-          message: 'أنشئ توكنًا بصلاحيتَي pages_show_list و pages_read_engagement، واختر صفحتك عند إنشائه.'
+          message: 'أنشئ توكنًا بصلاحيات pages_show_list و pages_read_engagement و pages_read_user_content، واختر صفحتك عند إنشائه.'
         });
       }
 

@@ -79,7 +79,7 @@ async function loginWithFacebook() {
       statusDiv.textContent = '❌ تم إلغاء الدخول أو رُفضت الأذونات';
       statusDiv.style.color = 'var(--error)';
     }
-  }, {scope: 'pages_read_engagement,instagram_basic,instagram_manage_insights'});
+  }, {scope: 'pages_show_list,pages_read_engagement,pages_read_user_content,instagram_basic,instagram_manage_insights'});
 }
 
 // ===== Event Listeners =====
