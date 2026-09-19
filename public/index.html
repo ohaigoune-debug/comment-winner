@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Comment Winner - أداة سحب الفائزين</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Facebook SDK -->
-  <script async defer crossorigin="anonymous" src="https://connect.facebook.net/ar_AR/sdk.js#xfbml=1&version=v18.0&appId=1234567890" id="facebook-jssdk"></script>
 </head>
 <body>
   <div class="container">
@@ -34,6 +32,9 @@
             <!-- Facebook Login Option -->
             <div class="setting-group">
               <h3>خيار 1: الدخول عبر Facebook (موصى به)</h3>
+              <label for="fbAppId">Facebook App ID</label>
+              <input type="text" id="fbAppId" placeholder="مثال: 1234567890123456" inputmode="numeric">
+              <small>احصل عليه من developers.facebook.com ← تطبيقك ← Settings ← Basic</small>
               <button class="btn btn-primary btn-facebook" onclick="loginWithFacebook()">
                 👤 الدخول عبر حسابي بـ Facebook
               </button>

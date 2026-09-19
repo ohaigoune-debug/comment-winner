@@ -212,7 +212,7 @@ GET /graph.facebook.com/v18.0/{accountId}/ig_hashtag_search
 ## 🚢 Deployment Checklist
 
 ### Before Deploy
-- [ ] Update Facebook App ID in public/index.html
+- [ ] Enter Facebook App ID in the app's Settings panel
 - [ ] Configure Facebook OAuth Redirect URIs
 - [ ] Test locally with real credentials
 - [ ] Review all environment variables

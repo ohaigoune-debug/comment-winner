@@ -18,7 +18,7 @@
   - `instagram_manage_insights`
 
 ### Code Updates
-- [ ] Update `public/index.html` line 9 with your App ID
+- [ ] Have your App ID ready (entered in the app's Settings panel, not in code)
 - [ ] Verify `server.js` has correct Meta API version
 - [ ] Review `.env.example` for all required variables
 - [ ] Create `.env` file with your credentials
@@ -43,7 +43,7 @@ cp .env.example .env
 
 ### Configuration
 - [ ] Add Meta Access Token to `.env`
-- [ ] Verify App ID is correct in `public/index.html`
+- [ ] Verify App ID is entered correctly in the app's Settings panel
 - [ ] Test locally before deploying
 
 ### Testing

@@ -57,19 +57,14 @@ This guide will help you configure your Facebook App for OAuth authentication in
 
 ## Step 6: Update Your App with the App ID
 
-### For Local Development:
-1. Open `/home/user/comment-winner/public/index.html`
-2. Find this line (line 9):
-```html
-<script async defer crossorigin="anonymous" src="https://connect.facebook.net/ar_AR/sdk.js#xfbml=1&version=v18.0&appId=1234567890" id="facebook-jssdk"></script>
-```
-3. Replace `1234567890` with your actual **App ID**
-4. Save the file
+**No code editing required.** The App ID is entered directly in the app:
 
-### Example (with sample App ID):
-```html
-<script async defer crossorigin="anonymous" src="https://connect.facebook.net/ar_AR/sdk.js#xfbml=1&version=v18.0&appId=123456789012345" id="facebook-jssdk"></script>
-```
+1. Open the app in your browser
+2. Click ⚙️ الإعدادات (Settings)
+3. Paste your **App ID** into the "Facebook App ID" field
+4. Click 👤 الدخول عبر حسابي بـ Facebook
+
+The App ID is saved in your browser and restored automatically next time.
 
 ## Step 7: Test Locally
 
@@ -158,7 +153,7 @@ When you complete this setup, your Comment Winner app will:
 2. ✅ Create a new App
 3. ✅ Add Facebook Login Product
 4. ✅ Configure Redirect URIs
-5. ✅ Update App ID in public/index.html
+5. ✅ Enter App ID in the app's Settings panel
 6. ✅ Test locally
 7. ✅ Deploy when ready
 

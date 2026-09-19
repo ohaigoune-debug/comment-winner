@@ -19,14 +19,8 @@ Follow the guide in `FACEBOOK_OAUTH_SETUP.md` to:
 - Configure OAuth settings
 
 ### Step 2: Update Your App ID (1 minute)
-Open `public/index.html` and replace `1234567890` with your actual App ID:
-
-```html
-<!-- Line 9: Replace the appId value -->
-<script async defer crossorigin="anonymous" 
-  src="https://connect.facebook.net/ar_AR/sdk.js#xfbml=1&version=v18.0&appId=YOUR_APP_ID_HERE" 
-  id="facebook-jssdk"></script>
-```
+Open the app, click ⚙️ الإعدادات, and paste your App ID into the
+**Facebook App ID** field. No code editing needed — it's saved in your browser.
 
 ### Step 3: Test It! (2 minutes)
 ```bash
@@ -120,7 +114,7 @@ Best for real Meta API access:
 ## Troubleshooting
 
 ### Facebook Login Button Not Working?
-- [ ] Check that appId is correctly set in index.html (not 1234567890)
+- [ ] Check that a valid App ID is entered in Settings
 - [ ] Verify your app is in development/live mode (not restricted)
 - [ ] Check browser console for CORS errors
 - [ ] Clear browser cache and try again

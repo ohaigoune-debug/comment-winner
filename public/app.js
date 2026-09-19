@@ -17,57 +17,73 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ===== Facebook OAuth =====
-function initFacebookSDK() {
-  // Initialize Facebook SDK
-  if (window.FB) {
-    FB.AppEvents.logPageView();
-  }
+let fbSdkAppId = null;
+
+function loadFacebookSDK(appId) {
+  if (fbSdkAppId === appId) return Promise.resolve();
+
+  return new Promise((resolve, reject) => {
+    const init = () => {
+      FB.init({ appId, cookie: true, xfbml: false, version: 'v18.0' });
+      fbSdkAppId = appId;
+      resolve();
+    };
+
+    if (window.FB) return init();
+
+    window.fbAsyncInit = init;
+    const script = document.createElement('script');
+    script.src = 'https://connect.facebook.net/ar_AR/sdk.js';
+    script.async = true;
+    script.defer = true;
+    script.crossOrigin = 'anonymous';
+    script.onerror = () => reject(new Error('تعذر تحميل Facebook SDK — تحقق من الاتصال بالإنترنت'));
+    document.head.appendChild(script);
+  });
 }
 
-function loginWithFacebook() {
-  if (!window.FB) {
-    showMessage('❌ Facebook SDK لم يتحمل بعد. حاول مرة أخرى.', 'error');
+async function loginWithFacebook() {
+  const appId = document.getElementById('fbAppId').value.trim();
+  const statusDiv = document.getElementById('fbLoginStatus');
+
+  if (!/^\d{10,}$/.test(appId)) {
+    statusDiv.textContent = '⚠️ أدخل Facebook App ID الصحيح أولًا (أرقام فقط)';
+    statusDiv.classList.remove('hidden');
+    statusDiv.style.color = 'var(--error)';
+    return;
+  }
+
+  persistSettings();
+
+  try {
+    await loadFacebookSDK(appId);
+  } catch (error) {
+    statusDiv.textContent = `❌ ${error.message}`;
+    statusDiv.classList.remove('hidden');
+    statusDiv.style.color = 'var(--error)';
     return;
   }
 
   FB.login(function(response) {
+    statusDiv.classList.remove('hidden');
+
     if (response.authResponse) {
-      // User logged in successfully
-      const accessToken = response.authResponse.accessToken;
-      const userID = response.authResponse.userID;
+      const { accessToken, userID } = response.authResponse;
 
-      // Save token to localStorage
-      localStorage.setItem('META_ACCESS_TOKEN', accessToken);
+      document.getElementById('accessToken').value = accessToken;
+      persistSettings();
 
-      // Update UI
-      const statusDiv = document.getElementById('fbLoginStatus');
       statusDiv.textContent = `✅ تم الدخول بنجاح! (ID: ${userID})`;
-      statusDiv.classList.remove('hidden');
       statusDiv.style.color = 'var(--success)';
-
-      // Hide manual token input
-      const tokenInput = document.getElementById('accessToken');
-      tokenInput.value = accessToken;
-      tokenInput.disabled = true;
-      tokenInput.style.opacity = '0.5';
-
-      showMessage('✅ تم حفظ التوكن بنجاح!', 'success');
     } else {
-      // User cancelled login
-      const statusDiv = document.getElementById('fbLoginStatus');
-      statusDiv.textContent = '❌ تم إلغاء عملية الدخول';
-      statusDiv.classList.remove('hidden');
+      statusDiv.textContent = '❌ تم إلغاء الدخول أو رُفضت الأذونات';
       statusDiv.style.color = 'var(--error)';
-      showMessage('❌ تم إلغاء عملية الدخول', 'error');
     }
   }, {scope: 'pages_read_engagement,instagram_basic,instagram_manage_insights'});
 }
 
 // ===== Event Listeners =====
 function setupEventListeners() {
-  // Initialize Facebook SDK
-  setTimeout(initFacebookSDK, 1000);
-
   // Platform selection
   document.querySelectorAll('.platform-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -93,23 +109,23 @@ function closeSettings() {
   document.getElementById('settingsModal').classList.add('hidden');
 }
 
-function saveSettings() {
-  const accessToken = document.getElementById('accessToken').value.trim();
-  const facebookPageId = document.getElementById('facebookPageId').value.trim();
-  const instagramAccountId = document.getElementById('instagramAccountId').value.trim();
+function persistSettings() {
+  localStorage.setItem('metaSettings', JSON.stringify({
+    accessToken: document.getElementById('accessToken').value.trim(),
+    facebookPageId: document.getElementById('facebookPageId').value.trim(),
+    instagramAccountId: document.getElementById('instagramAccountId').value.trim(),
+    fbAppId: document.getElementById('fbAppId').value.trim(),
+    savedAt: new Date().toISOString()
+  }));
+}
 
-  if (!accessToken) {
+function saveSettings() {
+  if (!document.getElementById('accessToken').value.trim()) {
     showMessage('Please enter Meta Access Token', 'error');
     return;
   }
 
-  localStorage.setItem('metaSettings', JSON.stringify({
-    accessToken,
-    facebookPageId,
-    instagramAccountId,
-    savedAt: new Date().toISOString()
-  }));
-
+  persistSettings();
   showMessage('✓ Settings saved successfully', 'success');
   setTimeout(() => closeSettings(), 500);
 }
@@ -138,6 +154,7 @@ function loadSettingsToForm() {
       document.getElementById('accessToken').value = parsed.accessToken || '';
       document.getElementById('facebookPageId').value = parsed.facebookPageId || '';
       document.getElementById('instagramAccountId').value = parsed.instagramAccountId || '';
+      document.getElementById('fbAppId').value = parsed.fbAppId || '';
     } catch (error) {
       console.error('Error parsing settings:', error);
     }
