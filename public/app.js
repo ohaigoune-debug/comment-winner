@@ -411,7 +411,19 @@ function applyFilters() {
 // ===== Draw Winners =====
 async function drawWinners() {
   if (!appState.filteredComments.length) {
-    showMessage('No eligible comments to draw from', 'error');
+    const total = appState.allComments.length;
+
+    if (!total) {
+      showMessage('لا توجد تعليقات محمّلة أصلًا. اضغط «سحب التعليقات» أولًا.', 'error');
+    } else {
+      const withMentions = appState.allComments.filter(c => c.mentions_count > 0).length;
+      showMessage(
+        `الفلاتر استبعدت كل التعليقات.\n` +
+        `محمّل: ${total} • مؤهّل: 0 • فيها منشن: ${withMentions}\n` +
+        `راجع: الحد الأدنى للمنشنات، الكلمة الإجبارية، وخانة البحث.`,
+        'error'
+      );
+    }
     return;
   }
 

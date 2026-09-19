@@ -8,6 +8,15 @@ const axios = require('axios');
 const GRAPH_API_VERSION = 'v18.0';
 const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
+// Tagging a friend puts them in message_tags and leaves their plain name in the
+// text, with no "@" to find. Typed handles still need matching, and \w misses
+// Arabic entirely, so take whichever source sees more.
+function countMentions(text, messageTags) {
+  const tagged = Array.isArray(messageTags) ? messageTags.length : 0;
+  const typed = ((text || '').match(/@[\p{L}\p{N}_.]+/gu) || []).length;
+  return Math.max(tagged, typed);
+}
+
 // Helper to make Meta API calls
 async function metaApiCall(endpoint, accessToken, params = {}) {
   try {
@@ -97,7 +106,7 @@ async function fetchFacebookComments(postId, accessToken) {
 
     while (hasMore) {
       const params = {
-        fields: 'id,message,from,created_time,like_count,comments.limit(0).summary(true)',
+        fields: 'id,message,message_tags,from,created_time,like_count,comments.limit(0).summary(true)',
         limit: 100,
         summary: true
       };
@@ -116,7 +125,7 @@ async function fetchFacebookComments(postId, accessToken) {
       // Process comments
       data.data.forEach(comment => {
         if (comment.message) {
-          const mentions = (comment.message.match(/@\w+/g) || []).length;
+          const mentions = countMentions(comment.message, comment.message_tags);
           // Facebook omits `from` for commenters it will not identify to this app
           const author = comment.from || {};
           comments.push({
@@ -230,7 +239,7 @@ async function fetchInstagramComments(mediaId, accessToken) {
       // Process comments
       data.data.forEach(comment => {
         if (comment.text) {
-          const mentions = (comment.text.match(/@\w+/g) || []).length;
+          const mentions = countMentions(comment.text);
           const author = comment.from || {};
           comments.push({
             comment_id: comment.id,
