@@ -161,42 +161,6 @@ function extractMentions(text) {
   return mentions.length;
 }
 
-// Generate mock comments for testing
-function generateMockComments(platform, postId) {
-  const names = ['أحمد محمود', 'فاطمة علي', 'محمد حسن', 'زينب أحمد', 'عمر خالد', 'سارة محمد', 'علي إبراهيم', 'ليلى حسن'];
-  const usernames = ['ahmed_m', 'fatima_ali', 'mohammad_h', 'zainab_a', 'omar_k', 'sarah_m', 'ali_i', 'leila_h'];
-  const commentTexts = [
-    'تم المشاركة ✅',
-    'منشن صديقي @ahmed_m',
-    'شكراً على المسابقة! 🎉',
-    'متشوق للنتائج',
-    'تم التعليق @fatima_ali @mohammad_h',
-    'أحب هذه المسابقات',
-    'منشن صديقاتي @zainab_a @sarah_m @leila_h',
-    'شكراً 🙏 تم'
-  ];
-
-  const comments = [];
-  for (let i = 0; i < 50; i++) {
-    const nameIdx = Math.floor(Math.random() * names.length);
-    comments.push({
-      comment_id: `${postId}_${i}`,
-      user_id: `user_${i}`,
-      username: usernames[nameIdx],
-      name: names[nameIdx],
-      text: commentTexts[Math.floor(Math.random() * commentTexts.length)],
-      likes_count: Math.floor(Math.random() * 50),
-      created_time: new Date(Date.now() - Math.random() * 86400000).toISOString(),
-      is_reply: Math.random() > 0.7 ? 1 : 0,
-      mentions_count: (commentTexts[Math.floor(Math.random() * commentTexts.length)].match(/@/g) || []).length,
-      is_eligible: 1,
-      platform: platform
-    });
-  }
-
-  return comments;
-}
-
 // ============ API Endpoints ============
 
 // GET /api/meta/pages - Get Facebook pages
@@ -280,34 +244,33 @@ app.post('/api/posts/resolve', (req, res) => {
 // POST /api/comments/fetch - Fetch comments from post
 app.post('/api/comments/fetch', async (req, res) => {
   try {
-    const { platform, postId, contestId } = req.body;
+    const { platform, postId, postUrl } = req.body;
+    const accessToken = req.body.accessToken || process.env.META_ACCESS_TOKEN;
 
-    if (!platform || !postId || !contestId) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!platform || !postId) {
+      return res.status(400).json({ error: 'Missing platform or postId' });
     }
 
-    if (!process.env.META_ACCESS_TOKEN) {
+    if (!accessToken) {
       return res.status(401).json({
-        error: 'Access Token not configured',
-        message: 'Please set your Meta Access Token in settings'
+        error: 'التوكن غير موجود',
+        message: 'ضع Meta Access Token في الإعدادات أولًا'
       });
     }
 
-    // Fetch comments from Meta API (with fallback to mock data)
     let comments = [];
-    let source = 'meta_api';
-
     try {
       if (platform === 'facebook') {
-        comments = await metaApi.fetchFacebookComments(postId, process.env.META_ACCESS_TOKEN);
+        comments = await metaApi.fetchFacebookComments(postId, accessToken);
       } else if (platform === 'instagram') {
-        comments = await metaApi.fetchInstagramComments(postId, process.env.META_ACCESS_TOKEN);
+        comments = await metaApi.fetchInstagramComments(postId, accessToken);
       }
     } catch (metaError) {
-      console.warn('⚠️ Meta API unavailable, using mock data for testing:', metaError.message);
-      // Fallback to mock data for testing
-      comments = generateMockComments(platform, postId);
-      source = 'mock_data';
+      logError('POST /api/comments/fetch', metaError);
+      return res.status(502).json({
+        error: 'تعذّر جلب التعليقات من فيسبوك',
+        message: metaError.message
+      });
     }
 
     if (comments.length === 0) {
@@ -318,20 +281,22 @@ app.post('/api/comments/fetch', async (req, res) => {
     }
 
     // Create contest and post records
-    const contestRow = db.prepare('INSERT OR IGNORE INTO contests (name) VALUES (?)').run(
+    const contestRow = db.prepare('INSERT INTO contests (name) VALUES (?)').run(
       `${platform.toUpperCase()} - ${new Date().toLocaleDateString('ar')}`
     );
+    const newContestId = contestRow.lastInsertRowid;
 
     const postRow = db.prepare(
-      'INSERT OR IGNORE INTO posts (contest_id, platform, post_id, post_url, total_comments, fetched_at) VALUES (?, ?, ?, ?, ?, ?)'
+      'INSERT INTO posts (contest_id, platform, post_id, post_url, total_comments, fetched_at) VALUES (?, ?, ?, ?, ?, ?)'
     ).run(
-      contestRow.lastInsertRowid || contestId,
+      newContestId,
       platform,
       postId,
-      req.body.postUrl || `https://${platform}.com/post/${postId}`,
+      postUrl || `https://${platform}.com/post/${postId}`,
       comments.length,
       new Date().toISOString()
     );
+    const newPostRowId = postRow.lastInsertRowid;
 
     // Insert comments
     const insertComment = db.prepare(`
@@ -345,7 +310,7 @@ app.post('/api/comments/fetch', async (req, res) => {
     comments.forEach(comment => {
       try {
         insertComment.run(
-          postRow.lastInsertRowid || 1,
+          newPostRowId,
           comment.comment_id,
           comment.user_id,
           comment.username,
@@ -369,7 +334,7 @@ app.post('/api/comments/fetch', async (req, res) => {
       commentsInserted: inserted,
       platform,
       postId,
-      contestId: contestRow.lastInsertRowid || contestId
+      contestId: newContestId
     });
   } catch (error) {
     logError('POST /api/comments/fetch', error);

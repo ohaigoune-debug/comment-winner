@@ -241,64 +241,40 @@ async function fetchComments() {
   showLoading(true);
 
   try {
-    // Create a contest first
-    const contestName = `${platform.toUpperCase()} - ${new Date().toLocaleDateString('ar')}`;
-    appState.currentContestId = Date.now(); // Simple ID generation
+    const response = await fetch('/api/comments/fetch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        platform,
+        postId,
+        postUrl,
+        accessToken: settings.accessToken
+      })
+    });
 
-    // Simulate API call to fetch comments
-    // TODO: Replace with actual Meta API call
-    const mockComments = generateMockComments(platform, postId);
+    const data = await response.json();
 
-    appState.allComments = mockComments;
-    appState.filteredComments = [...mockComments];
+    if (!response.ok) {
+      showMessage(`❌ ${data.error}\n${data.message || ''}`, 'error');
+      return;
+    }
+
+    const comments = await (await fetch(`/api/comments?contestId=${data.contestId}`)).json();
+
+    appState.currentContestId = data.contestId;
+    appState.allComments = comments;
+    appState.filteredComments = [...comments];
 
     updateCommentStats();
     document.getElementById('statsSection').classList.remove('hidden');
     document.getElementById('drawSection').classList.remove('hidden');
 
-    showMessage(`✓ Fetched ${mockComments.length} comments from ${platform}`, 'success');
+    showMessage(`✓ تم جلب ${comments.length} تعليقًا حقيقيًا من ${platform}`, 'success');
   } catch (error) {
-    showMessage(`Error fetching comments: ${error.message}`, 'error');
+    showMessage(`خطأ في جلب التعليقات: ${error.message}`, 'error');
+  } finally {
+    showLoading(false);
   }
-
-  showLoading(false);
-}
-
-// ===== Mock Data Generator (for testing) =====
-function generateMockComments(platform, postId) {
-  const names = ['أحمد محمود', 'فاطمة علي', 'محمد حسن', 'زينب أحمد', 'عمر خالد', 'سارة محمد', 'علي إبراهيم', 'ليلى حسن'];
-  const usernames = ['ahmed_m', 'fatima_ali', 'mohammad_h', 'zainab_a', 'omar_k', 'sarah_m', 'ali_i', 'leila_h'];
-  const commentTexts = [
-    'تم المشاركة ✅',
-    'منشن صديقي @ahmed_m',
-    'شكراً على المسابقة! 🎉',
-    'متشوق للنتائج',
-    'تم التعليق @fatima_ali @mohammad_h',
-    'أحب هذه المسابقات',
-    'منشن صديقاتي @zainab_a @sarah_m @leila_h',
-    'شكراً 🙏 تم'
-  ];
-
-  const comments = [];
-  for (let i = 0; i < 50; i++) {
-    const nameIdx = Math.floor(Math.random() * names.length);
-    comments.push({
-      comment_id: `${postId}_${i}`,
-      user_id: `user_${i}`,
-      username: usernames[nameIdx],
-      name: names[nameIdx],
-      text: commentTexts[Math.floor(Math.random() * commentTexts.length)],
-      likes_count: Math.floor(Math.random() * 50),
-      created_time: new Date(Date.now() - Math.random() * 86400000).toISOString(),
-      is_reply: Math.random() > 0.7 ? 1 : 0,
-      mentions_count: (commentTexts[Math.floor(Math.random() * commentTexts.length)].match(/@/g) || []).length,
-      is_eligible: 1,
-      platform: platform,
-      post_url: 'https://example.com/post'
-    });
-  }
-
-  return comments;
 }
 
 // ===== Comment Stats =====
