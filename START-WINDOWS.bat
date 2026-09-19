@@ -1,6 +1,4 @@
 @echo off
-chcp 65001 >nul
-setlocal
 title Comment Winner
 cd /d "%~dp0"
 
@@ -14,41 +12,28 @@ where node >nul 2>&1
 if errorlevel 1 goto no_node
 if exist "node_modules" goto run
 
-echo  [1/2] Installing... please wait 1-2 minutes
-echo  جاري التجهيز... انتظر دقيقة أو دقيقتين
+echo  Installing. This takes 1-2 minutes, please wait...
 echo.
 call npm install
 if errorlevel 1 goto install_failed
 
 :run
 echo.
-echo  [2/2] Starting...
-echo  جاري التشغيل
-echo.
-echo  The browser will open in a few seconds.
-echo  سيفتح المتصفح تلقائيا بعد ثوان
-echo.
+echo  Starting the app. The browser will open by itself.
 echo  To stop: close this window.
-echo  للايقاف: اغلق هذه النافذة
 echo.
-
 set OPEN_BROWSER=1
 call npm start
-
 echo.
-echo  Stopped. / تم الايقاف
+echo  The app has stopped.
 pause
 exit /b 0
 
 :no_node
-echo  [!] Node.js is not installed
-echo  [!] برنامج Node.js غير مثبت
+echo  Node.js is NOT installed on this computer.
 echo.
 echo  The download page will open now.
-echo  Install it, then run this file again.
-echo.
-echo  سيفتح موقع التحميل الان
-echo  ثبته ثم اضغط على هذا الملف مرة اخرى
+echo  Install Node.js, then run this file again.
 echo.
 start "" "https://nodejs.org/en/download"
 pause
@@ -56,7 +41,8 @@ exit /b 1
 
 :install_failed
 echo.
-echo  Install failed. Please send a screenshot.
-echo  فشل التجهيز - صور الشاشة وارسلها
+echo  Installation FAILED.
+echo  Please send a screenshot of this window.
+echo.
 pause
 exit /b 1
