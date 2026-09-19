@@ -290,23 +290,41 @@ app.post('/api/comments/fetch', async (req, res) => {
       });
     }
 
-    // Create contest and post records
-    const contestRow = db.prepare('INSERT INTO contests (name) VALUES (?)').run(
-      `${platform.toUpperCase()} - ${new Date().toLocaleDateString('ar')}`
-    );
-    const newContestId = contestRow.lastInsertRowid;
+    // comment_id is globally unique, so a second fetch of the same post would
+    // insert nothing and leave the new contest empty. Refetching refreshes the
+    // post that is already stored instead of creating a rival empty one.
+    const existingPost = db.prepare(
+      'SELECT id, contest_id FROM posts WHERE platform = ? AND post_id = ?'
+    ).get(platform, postId);
 
-    const postRow = db.prepare(
-      'INSERT INTO posts (contest_id, platform, post_id, post_url, total_comments, fetched_at) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(
-      newContestId,
-      platform,
-      postId,
-      postUrl || `https://${platform}.com/post/${postId}`,
-      comments.length,
-      new Date().toISOString()
-    );
-    const newPostRowId = postRow.lastInsertRowid;
+    let newContestId;
+    let newPostRowId;
+
+    if (existingPost) {
+      newContestId = existingPost.contest_id;
+      newPostRowId = existingPost.id;
+      db.prepare('DELETE FROM comments WHERE post_id = ?').run(newPostRowId);
+      db.prepare('DELETE FROM winners WHERE contest_id = ?').run(newContestId);
+      db.prepare('UPDATE posts SET total_comments = ?, fetched_at = ? WHERE id = ?')
+        .run(comments.length, new Date().toISOString(), newPostRowId);
+    } else {
+      const contestRow = db.prepare('INSERT INTO contests (name) VALUES (?)').run(
+        `${platform.toUpperCase()} - ${new Date().toLocaleDateString('ar')}`
+      );
+      newContestId = contestRow.lastInsertRowid;
+
+      const postRow = db.prepare(
+        'INSERT INTO posts (contest_id, platform, post_id, post_url, total_comments, fetched_at) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(
+        newContestId,
+        platform,
+        postId,
+        postUrl || `https://${platform}.com/post/${postId}`,
+        comments.length,
+        new Date().toISOString()
+      );
+      newPostRowId = postRow.lastInsertRowid;
+    }
 
     // Insert comments
     const insertComment = db.prepare(`
@@ -322,7 +340,7 @@ app.post('/api/comments/fetch', async (req, res) => {
     let skipped = 0;
     comments.forEach(comment => {
       try {
-        insertComment.run(
+        const result = insertComment.run(
           newPostRowId,
           comment.comment_id,
           comment.user_id ?? null,
@@ -335,7 +353,8 @@ app.post('/api/comments/fetch', async (req, res) => {
           comment.mentions_count ?? 0,
           comment.is_eligible ?? 1
         );
-        inserted++;
+        // OR IGNORE reports no error when it stores nothing, so count real rows
+        if (result.changes > 0) inserted++; else skipped++;
       } catch {
         skipped++;
       }

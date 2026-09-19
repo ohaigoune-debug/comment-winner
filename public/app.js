@@ -308,6 +308,11 @@ async function fetchComments() {
 
     const comments = await (await fetch(`/api/comments?contestId=${data.contestId}`)).json();
 
+    if (!comments.length) {
+      showMessage(`❌ فيسبوك أرسل ${data.commentsFetched} تعليقًا لكن لم يُحفظ أيٌّ منها. أرسل صورة لهذه الرسالة.`, 'error');
+      return;
+    }
+
     appState.currentContestId = data.contestId;
     appState.allComments = comments;
     appState.filteredComments = [...comments];
@@ -386,7 +391,9 @@ function applyFilters() {
   if (document.getElementById('removeDuplicates').checked || document.getElementById('onePerUser').checked) {
     const seen = new Set();
     filtered = filtered.filter(c => {
-      const key = c.user_id || c.username;
+      // Without an author, comments are not attributable to one person, so
+      // keying on a shared null would collapse every one of them into a single entry
+      const key = c.user_id || c.username || c.comment_id;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
