@@ -635,12 +635,26 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
+// The address a phone on the same Wi-Fi would use; `family` is a string on
+// current Node and was a number on older releases.
+function lanAddresses() {
+  return Object.values(require('os').networkInterfaces())
+    .flat()
+    .filter(n => n && !n.internal && (n.family === 'IPv4' || n.family === 4))
+    .map(n => n.address);
+}
+
 // Start server
 app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
   console.log(`\n🎉 Comment Winner v${APP_VERSION} running on ${url}`);
   console.log(`📊 Database: ${dbPath}`);
-  console.log(`\n   افتح المتصفح على: ${url}\n`);
+  console.log(`\n   على هذا الجهاز:  ${url}`);
+
+  for (const address of lanAddresses()) {
+    console.log(`   من الهاتف:       http://${address}:${PORT}`);
+  }
+  console.log('');
 
   // Opened here rather than by the launcher, so it cannot fire before the port is listening
   if (process.env.OPEN_BROWSER === '1') {
