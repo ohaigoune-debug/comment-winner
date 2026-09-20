@@ -74,24 +74,55 @@ async function getFacebookPages(accessToken) {
 
 // Get Instagram Business Account linked to Facebook Page
 async function getInstagramAccount(pageId, accessToken) {
-  try {
-    const data = await metaApiCall(`/${pageId}`, accessToken, {
-      fields: 'instagram_business_accounts'
-    });
+  const data = await metaApiCall(`/${pageId}`, accessToken, {
+    fields: 'instagram_business_account{id,username}'
+  });
 
-    if (!data.instagram_business_accounts || !data.instagram_business_accounts.data.length) {
-      throw new Error('No Instagram Professional account found linked to this page. Make sure your Instagram account is Professional/Business.');
-    }
-
-    const igAccount = data.instagram_business_accounts.data[0];
-    return {
-      id: igAccount.id,
-      name: igAccount.name
-    };
-  } catch (error) {
-    console.error('Error fetching Instagram account:', error.message);
-    throw error;
+  if (!data.instagram_business_account) {
+    throw new Error(
+      'لا يوجد حساب إنستغرام محترف مرتبط بهذه الصفحة. ' +
+      'حوّل حسابك إلى Professional من إعدادات إنستغرام واربطه بصفحتك على فيسبوك.'
+    );
   }
+
+  return data.instagram_business_account;
+}
+
+// An Instagram link carries a shortcode (/p/C8xYz...), but the API addresses
+// media by a numeric id, and offers no lookup between the two. The account's
+// own media list is the only way across: find the item whose permalink
+// carries that shortcode.
+async function resolveInstagramMediaId(shortcode, userAccessToken, preferredPageId) {
+  const pages = await getFacebookPages(userAccessToken);
+  const page = preferredPageId ? pages.find(p => p.id === preferredPageId) : pages[0];
+
+  if (!page) {
+    throw new Error('لم يعثر التطبيق على صفحة فيسبوك مرتبطة بهذا التوكن، وحساب إنستغرام المحترف يُوصَل عبرها.');
+  }
+
+  const account = await getInstagramAccount(page.id, page.access_token);
+  console.log(`📷 حساب إنستغرام: @${account.username} (${account.id})`);
+
+  let url = `/${account.id}/media`;
+  let params = { fields: 'id,permalink', limit: 100 };
+  let scanned = 0;
+
+  while (url) {
+    const data = await metaApiCall(url, page.access_token, params);
+    scanned += data.data?.length || 0;
+
+    const match = (data.data || []).find(m => (m.permalink || '').includes(`/${shortcode}`));
+    if (match) return { mediaId: match.id, pageToken: page.access_token };
+
+    const after = data.paging?.cursors?.after;
+    if (!after) break;
+    params = { ...params, after };
+  }
+
+  throw new Error(
+    `لم يُعثر على هذا المنشور ضمن ${scanned} منشورًا في حساب @${account.username}. ` +
+    'تأكد أن الرابط يخص هذا الحساب نفسه.'
+  );
 }
 
 // Fetch comments from Facebook Post
@@ -223,7 +254,7 @@ async function fetchInstagramComments(mediaId, accessToken) {
 
     while (hasMore) {
       const params = {
-        fields: 'id,text,from,timestamp,like_count,replies.limit(0).summary(true)',
+        fields: 'id,text,username,timestamp,like_count,replies.limit(0).summary(true)',
         limit: 100,
         summary: true
       };
@@ -243,12 +274,14 @@ async function fetchInstagramComments(mediaId, accessToken) {
       data.data.forEach(comment => {
         if (comment.text) {
           const mentions = countMentions(comment.text);
+          // Instagram returns the handle as a plain `username`, not inside `from`
           const author = comment.from || {};
+          const username = comment.username ?? author.username ?? null;
           comments.push({
             comment_id: comment.id,
-            user_id: author.id ?? null,
-            username: author.username ?? author.name ?? null,
-            name: author.name ?? author.username ?? 'مستخدم إنستغرام',
+            user_id: author.id ?? username,
+            username,
+            name: author.name ?? username ?? 'مستخدم إنستغرام',
             text: comment.text,
             likes_count: comment.like_count || 0,
             created_time: comment.timestamp,
@@ -256,7 +289,7 @@ async function fetchInstagramComments(mediaId, accessToken) {
             is_reply: 0, // Top-level comment
             parent_comment_id: null,
             is_eligible: 1,
-            link: author.username ? `https://instagram.com/${author.username}` : null,
+            link: username ? `https://instagram.com/${username}` : null,
             platform: 'instagram'
           });
           totalFetched++;
@@ -302,6 +335,7 @@ async function validateAccessToken(accessToken) {
 module.exports = {
   getFacebookPages,
   getInstagramAccount,
+  resolveInstagramMediaId,
   fetchFacebookComments,
   fetchFacebookCommentsAsPage,
   fetchInstagramComments,

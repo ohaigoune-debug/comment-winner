@@ -418,7 +418,10 @@ app.post('/api/comments/fetch', async (req, res) => {
       if (platform === 'facebook') {
         comments = await metaApi.fetchFacebookCommentsAsPage(postId, accessToken, req.body.facebookPageId);
       } else if (platform === 'instagram') {
-        comments = await metaApi.fetchInstagramComments(postId, accessToken);
+        const { mediaId, pageToken } = await metaApi.resolveInstagramMediaId(
+          postId, accessToken, req.body.facebookPageId
+        );
+        comments = await metaApi.fetchInstagramComments(mediaId, pageToken);
       }
     } catch (metaError) {
       logError('POST /api/comments/fetch', metaError);
