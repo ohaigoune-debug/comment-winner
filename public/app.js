@@ -118,8 +118,11 @@ async function openSettings() {
   try {
     const { hasToken } = await (await fetch('/api/settings/token')).json();
     document.getElementById('shareToken').checked = hasToken;
+
+    const tg = await (await fetch('/api/telegram/settings')).json();
+    document.getElementById('telegramChatId').value = tg.chatId;
   } catch {
-    // leave the box as it is if the server cannot be reached
+    // leave the form as it is if the server cannot be reached
   }
 }
 
@@ -153,6 +156,15 @@ async function saveSettings() {
       method: share ? 'POST' : 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: share ? JSON.stringify({ accessToken }) : undefined
+    });
+
+    await fetch('/api/telegram/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        botToken: document.getElementById('telegramBotToken').value.trim(),
+        chatId: document.getElementById('telegramChatId').value.trim()
+      })
     });
   } catch (error) {
     showMessage(`⚠️ حُفظ محليًا، لكن المشاركة مع الأجهزة فشلت: ${error.message}`, 'error');
@@ -237,6 +249,71 @@ async function checkToken() {
   } catch (error) {
     box.textContent = `❌ ${error.message}`;
     box.style.color = 'var(--error)';
+  }
+}
+
+// ===== Telegram =====
+async function findTelegramChat() {
+  const botToken = document.getElementById('telegramBotToken').value.trim();
+  const box = document.getElementById('telegramStatus');
+  box.classList.remove('hidden');
+  box.style.whiteSpace = 'pre-line';
+
+  if (!botToken) {
+    box.textContent = '⚠️ ضع توكن البوت أولًا';
+    box.style.color = 'var(--error)';
+    return;
+  }
+
+  box.textContent = '⏳ جارٍ البحث...';
+  box.style.color = '';
+
+  try {
+    const response = await fetch(`/api/telegram/chats?botToken=${encodeURIComponent(botToken)}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      box.textContent = `❌ ${data.error}\n${data.message || ''}`;
+      box.style.color = 'var(--error)';
+      return;
+    }
+
+    document.getElementById('telegramChatId').value = data.chats[0].id;
+    box.textContent = `✅ ${data.chats.map(c => `${c.name} — ${c.id}`).join('\n')}\n\nتم ملء المعرّف. اضغط حفظ.`;
+    box.style.color = 'var(--success)';
+  } catch (error) {
+    box.textContent = `❌ ${error.message}`;
+    box.style.color = 'var(--error)';
+  }
+}
+
+async function sendToTelegram() {
+  if (!appState.winners.length) {
+    showMessage('اسحب الفائزين أولًا', 'error');
+    return;
+  }
+
+  showLoading(true);
+
+  try {
+    const response = await fetch('/api/telegram/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contestId: appState.currentContestId })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      showMessage(`❌ ${data.error}`, 'error');
+      return;
+    }
+
+    showMessage(`✅ أُرسل ${data.sent} فائزين إلى تليغرام`, 'success');
+  } catch (error) {
+    showMessage(`❌ ${error.message}`, 'error');
+  } finally {
+    showLoading(false);
   }
 }
 
@@ -519,13 +596,32 @@ function displayWinners(winners) {
   winners.forEach((winner, index) => {
     const card = document.createElement('div');
     card.className = 'winner-card';
-    card.innerHTML = `
-      <div class="winner-rank">${index + 1}</div>
-      <div class="winner-name">${winner.name}</div>
-      <div class="winner-username">@${winner.username || 'N/A'}</div>
-      <div class="winner-comment">"${winner.text || 'بدون نص'}"</div>
-      <div class="winner-platform">📱 ${winner.platform.toUpperCase()}</div>
-    `;
+
+    // Names and comments are written by strangers, so they are set as text and
+    // never parsed as HTML
+    const addLine = (className, text) => {
+      const line = document.createElement('div');
+      line.className = className;
+      line.textContent = text;
+      card.appendChild(line);
+    };
+
+    addLine('winner-rank', index + 1);
+    addLine('winner-name', winner.name || 'بدون اسم');
+    if (winner.username) addLine('winner-username', `@${winner.username}`);
+    addLine('winner-comment', `"${winner.text || 'بدون نص'}"`);
+    addLine('winner-platform', `📱 ${(winner.platform || '').toUpperCase()}`);
+
+    if (/^https?:\/\//i.test(winner.link || '')) {
+      const anchor = document.createElement('a');
+      anchor.className = 'winner-link';
+      anchor.href = winner.link;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      anchor.textContent = '🔗 افتح حساب الفائز';
+      card.appendChild(anchor);
+    }
+
     container.appendChild(card);
   });
 }

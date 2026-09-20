@@ -12,6 +12,7 @@ try {
 }
 const dotenv = require('dotenv');
 const metaApi = require('./meta-api');
+const telegram = require('./telegram');
 
 // Load environment variables
 dotenv.config();
@@ -67,6 +68,7 @@ function initializeDatabase() {
       parent_comment_id TEXT,
       mentions_count INTEGER DEFAULT 0,
       is_eligible INTEGER DEFAULT 1,
+      link TEXT,
       fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(post_id) REFERENCES posts(id)
     );
@@ -79,6 +81,7 @@ function initializeDatabase() {
       username TEXT,
       name TEXT NOT NULL,
       comment_text TEXT,
+      link TEXT,
       winner_rank INTEGER,
       drawn_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(contest_id) REFERENCES contests(id),
@@ -98,9 +101,20 @@ function initializeDatabase() {
   `);
 }
 
+// CREATE TABLE IF NOT EXISTS leaves databases made by earlier versions untouched,
+// so columns added since have to be applied to them separately.
+function addColumnIfMissing(table, column, definition) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!columns.some(c => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
 // Initialize database on startup
 try {
   initializeDatabase();
+  addColumnIfMissing('comments', 'link', 'TEXT');
+  addColumnIfMissing('winners', 'link', 'TEXT');
   console.log('✓ Database initialized');
 } catch (error) {
   console.error('✗ Database initialization error:', error.message);
@@ -169,11 +183,22 @@ function extractMentions(text) {
   return mentions.length;
 }
 
-// A token saved here serves every device on the network, so a phone does not
-// have to retype one. It never leaves this machine.
-function getSharedToken() {
-  const row = db.prepare("SELECT value FROM settings WHERE key = 'meta_access_token'").get();
+// Settings saved here serve every device on the network, so a phone does not
+// have to retype them. They never leave this machine.
+function getSetting(key) {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
   return row?.value || null;
+}
+
+function setSetting(key, value) {
+  db.prepare(`
+    INSERT INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+  `).run(key, value);
+}
+
+function getSharedToken() {
+  return getSetting('meta_access_token');
 }
 
 // ============ API Endpoints ============
@@ -208,6 +233,87 @@ app.post('/api/settings/token', (req, res) => {
 app.delete('/api/settings/token', (req, res) => {
   db.prepare("DELETE FROM settings WHERE key = 'meta_access_token'").run();
   res.json({ success: true });
+});
+
+// ============ Telegram ============
+
+// GET /api/telegram/settings - what this machine has configured
+app.get('/api/telegram/settings', (req, res) => {
+  res.json({
+    hasBotToken: Boolean(getSetting('telegram_bot_token')),
+    chatId: getSetting('telegram_chat_id') || ''
+  });
+});
+
+// POST /api/telegram/settings
+app.post('/api/telegram/settings', (req, res) => {
+  try {
+    const { botToken, chatId } = req.body;
+
+    if (botToken) setSetting('telegram_bot_token', botToken);
+    if (chatId) setSetting('telegram_chat_id', chatId);
+
+    res.json({ success: true });
+  } catch (error) {
+    logError('POST /api/telegram/settings', error);
+    res.status(500).json({ error: 'تعذّر حفظ إعدادات تليغرام' });
+  }
+});
+
+// GET /api/telegram/chats - chat ids of whoever already wrote to the bot
+app.get('/api/telegram/chats', async (req, res) => {
+  const botToken = req.query.botToken || getSetting('telegram_bot_token');
+
+  if (!botToken) {
+    return res.status(400).json({ error: 'ضع توكن البوت أولًا' });
+  }
+
+  try {
+    const chats = await telegram.findChats(botToken);
+
+    if (chats.length === 0) {
+      return res.status(404).json({
+        error: 'لم يراسل أحد البوت بعد',
+        message: 'افتح بوتك في تليغرام وأرسل له أي رسالة، ثم اضغط هذا الزر مرة أخرى.'
+      });
+    }
+
+    res.json({ chats });
+  } catch (error) {
+    res.status(502).json({ error: error.message });
+  }
+});
+
+// POST /api/telegram/send - send a contest's winners
+app.post('/api/telegram/send', async (req, res) => {
+  const botToken = req.body.botToken || getSetting('telegram_bot_token');
+  const chatId = req.body.chatId || getSetting('telegram_chat_id');
+  const { contestId } = req.body;
+
+  if (!botToken || !chatId) {
+    return res.status(400).json({ error: 'إعدادات تليغرام ناقصة (توكن البوت أو معرّف المحادثة)' });
+  }
+
+  if (!contestId) {
+    return res.status(400).json({ error: 'Missing contestId' });
+  }
+
+  const winners = db.prepare(
+    'SELECT * FROM winners WHERE contest_id = ? ORDER BY winner_rank'
+  ).all(contestId);
+
+  if (winners.length === 0) {
+    return res.status(400).json({ error: 'لا يوجد فائزون محفوظون. اسحب القرعة أولًا.' });
+  }
+
+  const contest = db.prepare('SELECT name FROM contests WHERE id = ?').get(contestId);
+
+  try {
+    await telegram.sendMessage(botToken, chatId, telegram.formatWinners(winners, contest?.name || ''));
+    res.json({ success: true, sent: winners.length });
+  } catch (error) {
+    res.status(502).json({ error: error.message });
+  }
 });
 
 // GET /api/meta/pages - Get Facebook pages
@@ -369,8 +475,8 @@ app.post('/api/comments/fetch', async (req, res) => {
     const insertComment = db.prepare(`
       INSERT OR IGNORE INTO comments (
         post_id, comment_id, user_id, username, name, text,
-        likes_count, created_time, is_reply, mentions_count, is_eligible
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        likes_count, created_time, is_reply, mentions_count, is_eligible, link
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     // Meta omits fields like username on some accounts; binding undefined throws,
@@ -390,7 +496,8 @@ app.post('/api/comments/fetch', async (req, res) => {
           comment.created_time ?? null,
           comment.is_reply ?? 0,
           comment.mentions_count ?? 0,
-          comment.is_eligible ?? 1
+          comment.is_eligible ?? 1,
+          comment.link ?? null
         );
         // OR IGNORE reports no error when it stores nothing, so count real rows
         if (result.changes > 0) inserted++; else skipped++;
@@ -512,8 +619,8 @@ app.post('/api/draw', (req, res) => {
 
     // Insert new winners
     const insertStmt = db.prepare(`
-      INSERT INTO winners (contest_id, comment_id, user_id, username, name, comment_text, winner_rank)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO winners (contest_id, comment_id, user_id, username, name, comment_text, link, winner_rank)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     winners.forEach((winner, index) => {
@@ -558,8 +665,8 @@ app.post('/api/winners', (req, res) => {
     db.prepare('DELETE FROM winners WHERE contest_id = ?').run(contestId);
 
     const insert = db.prepare(`
-      INSERT INTO winners (contest_id, comment_id, user_id, username, name, comment_text, winner_rank)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO winners (contest_id, comment_id, user_id, username, name, comment_text, link, winner_rank)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     winners.forEach((winner, index) => {
@@ -570,6 +677,7 @@ app.post('/api/winners', (req, res) => {
         winner.username ?? null,
         winner.name ?? 'بدون اسم',
         winner.text ?? null,
+        winner.link ?? null,
         index + 1
       );
     });

@@ -65,6 +65,18 @@
               <label for="instagramAccountId">Instagram Account ID (اختياري)</label>
               <input type="text" id="instagramAccountId" placeholder="رقم حساب Instagram">
             </div>
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #444;">
+
+            <div class="setting-group">
+              <h3>📨 إرسال النتائج إلى تليغرام (اختياري)</h3>
+              <label for="telegramBotToken">توكن البوت</label>
+              <input type="password" id="telegramBotToken" placeholder="احصل عليه من @BotFather">
+              <label for="telegramChatId">معرّف المحادثة</label>
+              <input type="text" id="telegramChatId" placeholder="مثال: 123456789">
+              <button class="btn btn-secondary" onclick="findTelegramChat()">🔎 اعثر على محادثتي تلقائيًا</button>
+              <div id="telegramStatus" class="message hidden"></div>
+            </div>
+
             <button class="btn btn-primary" onclick="saveSettings()">💾 حفظ الإعدادات</button>
             <div id="settingsMessage" class="message"></div>
           </div>
@@ -221,6 +233,7 @@
         <div class="winner-actions">
           <button class="btn btn-secondary" onclick="redraw()">🔄 إعادة القرعة</button>
           <button class="btn btn-secondary" onclick="selectAlternate()">➕ اختيار فائز بديل</button>
+          <button class="btn btn-secondary" onclick="sendToTelegram()">📨 أرسل إلى تليغرام</button>
           <button class="btn btn-export" onclick="exportCSV()">📊 Export CSV</button>
           <button class="btn btn-export" onclick="exportXLSX()">📄 Export Excel</button>
         </div>

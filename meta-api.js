@@ -106,7 +106,7 @@ async function fetchFacebookComments(postId, accessToken) {
 
     while (hasMore) {
       const params = {
-        fields: 'id,message,message_tags,from,created_time,like_count,comments.limit(0).summary(true)',
+        fields: 'id,message,message_tags,from,created_time,like_count,permalink_url,comments.limit(0).summary(true)',
         limit: 100,
         summary: true
       };
@@ -140,6 +140,9 @@ async function fetchFacebookComments(postId, accessToken) {
             is_reply: 0, // Top-level comment
             parent_comment_id: null,
             is_eligible: 1,
+            // from.id is app-scoped, so facebook.com/<id> does not open a profile;
+            // the comment permalink is the link that actually resolves
+            link: comment.permalink_url || null,
             platform: 'facebook'
           });
           totalFetched++;
@@ -253,6 +256,7 @@ async function fetchInstagramComments(mediaId, accessToken) {
             is_reply: 0, // Top-level comment
             parent_comment_id: null,
             is_eligible: 1,
+            link: author.username ? `https://instagram.com/${author.username}` : null,
             platform: 'instagram'
           });
           totalFetched++;
